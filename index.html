@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Almarbat API | توثيق واختبار المصادقة</title>
+    <title>Almarbat API | المصادقة والإشعارات والتوصيل - توثيق كامل</title>
     <style>
         * {
             margin: 0;
@@ -98,6 +98,44 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            padding: 12px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        }
+
+        .tab-btn:hover {
+            background: rgba(102,126,234,0.5);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
         }
 
         /* Endpoints Grid */
@@ -217,33 +255,6 @@
             color: #10b981;
         }
 
-        .params-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .params-list li {
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            font-size: 13px;
-        }
-
-        .param-name {
-            color: #f59e0b;
-            font-family: monospace;
-        }
-
-        .param-desc {
-            color: rgba(255,255,255,0.6);
-            margin-right: 10px;
-        }
-
-        .required {
-            color: #ef4444;
-            font-size: 11px;
-            margin-right: 5px;
-        }
-
         .test-btn {
             background: linear-gradient(135deg, #667eea, #764ba2);
             border: none;
@@ -320,6 +331,19 @@
             font-size: 12px;
         }
 
+        /* Buttons Group */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
         @media (max-width: 768px) {
             .endpoint-grid {
                 grid-template-columns: 1fr;
@@ -338,7 +362,7 @@
     <div class="container">
         <div class="header">
             <h1>🕌 ALMARBAT API</h1>
-            <div class="subtitle">نظام المصادقة والتسجيل - توثيق واختبار الـ API</div>
+            <div class="subtitle">نظام المصادقة والإشعارات والتوصيل - توثيق واختبار شامل</div>
             <div class="base-url">🔗 http://localhost:9001</div>
         </div>
 
@@ -349,8 +373,26 @@
             </div>
         </div>
 
-        <div class="endpoint-grid" id="endpointsGrid">
-            <!-- Endpoints will be injected here -->
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('auth')">🔐 المصادقة والتسجيل</button>
+            <button class="tab-btn" onclick="switchTab('notifications')">🔔 نظام الإشعارات</button>
+            <button class="tab-btn" onclick="switchTab('driver')">🚚 مهام السائق</button>
+        </div>
+
+        <!-- Auth Tab Content -->
+        <div id="auth-tab" class="tab-content active">
+            <div class="endpoint-grid" id="authEndpointsGrid"></div>
+        </div>
+
+        <!-- Notifications Tab Content -->
+        <div id="notifications-tab" class="tab-content">
+            <div class="endpoint-grid" id="notifEndpointsGrid"></div>
+        </div>
+
+        <!-- Driver Tab Content -->
+        <div id="driver-tab" class="tab-content">
+            <div class="endpoint-grid" id="driverEndpointsGrid"></div>
         </div>
 
         <div class="token-display" id="tokenDisplay" style="display: none;">
@@ -368,8 +410,14 @@
 
     <script>
         let currentToken = '';
+        let currentUserRole = '';
+        let buyerToken = '';
+        let sellerToken = '';
+        let driverToken = '';
+        let butcherToken = '';
 
-        const endpoints = [
+        // Authentication Endpoints
+        const authEndpoints = [
             {
                 method: 'GET',
                 url: '/api/health/',
@@ -377,7 +425,9 @@
                 description: 'التحقق من أن الخادم يعمل بشكل صحيح',
                 arabic: 'يستخدم هذا ال endpoint للتحقق من أن الخادم قيد التشغيل ويعمل بشكل طبيعي. لا يتطلب أي توثيق ويعيد الحالة الحالية للنظام.',
                 auth: false,
-                body: null
+                body: null,
+                saveToken: false,
+                tokenVar: null
             },
             {
                 method: 'POST',
@@ -386,16 +436,17 @@
                 description: 'إنشاء حساب جديد كمشتري',
                 arabic: 'يستخدم هذا ال endpoint لتسجيل مستخدم جديد بدور "مشتري". يجب إدخال البيانات الشخصية بما فيها الاسم الكامل، رقم الهاتف، البريد الإلكتروني، كلمة المرور، وعنوان التسليم الافتراضي.',
                 auth: false,
-                role: 'acheteur',
                 body: {
-                    nom: "أحمد ولد محمد",
-                    telephone: "+22212345678",
-                    email: "ahmed@test.com",
+                    nom: "محمد المشتري",
+                    telephone: "+22212345001",
+                    email: "buyer1@test.com",
                     mot_de_passe: "password123",
                     confirm_mot_de_passe: "password123",
                     role: "acheteur",
                     adresse_livraison_par_defaut: "نواكشوط، تفرغ زينة"
-                }
+                },
+                saveToken: true,
+                tokenVar: 'buyerToken'
             },
             {
                 method: 'POST',
@@ -404,17 +455,18 @@
                 description: 'إنشاء حساب جديد كبائع',
                 arabic: 'يستخدم هذا ال endpoint لتسجيل مستخدم جديد بدور "بائع". يجب إدخال البيانات الشخصية بالإضافة إلى الاسم التجاري والموقع الجغرافي للمحل.',
                 auth: false,
-                role: 'vendeur',
                 body: {
-                    nom: "مريم بنت أحمد",
-                    telephone: "+22287654321",
-                    email: "mariem@vendeur.com",
+                    nom: "أحمد البائع",
+                    telephone: "+22212345002",
+                    email: "seller1@test.com",
                     mot_de_passe: "password123",
                     confirm_mot_de_passe: "password123",
                     role: "vendeur",
-                    nom_commercial: "سوق المرابط المركزي",
-                    localisation: "نواكشوط، السبخة"
-                }
+                    nom_commercial: "مزرعة البائع",
+                    localisation: "نواكشوط، دار النعيم"
+                },
+                saveToken: true,
+                tokenVar: 'sellerToken'
             },
             {
                 method: 'POST',
@@ -423,17 +475,18 @@
                 description: 'إنشاء حساب جديد كسائق توصيل',
                 arabic: 'يستخدم هذا ال endpoint لتسجيل مستخدم جديد بدور "سائق". يجب إدخال البيانات الشخصية بالإضافة إلى نوع المركبة ورقم اللوحة.',
                 auth: false,
-                role: 'livreur',
                 body: {
-                    nom: "سيدي ولد إبراهيم",
-                    telephone: "+22211223344",
-                    email: "sidi@livreur.com",
+                    nom: "سيدي السائق",
+                    telephone: "+22212345003",
+                    email: "driver1@test.com",
                     mot_de_passe: "password123",
                     confirm_mot_de_passe: "password123",
                     role: "livreur",
-                    vehicule_type: "تويوتا هايلكس",
-                    plaque_immatriculation: "AB-123-CD"
-                }
+                    vehicule_type: "دراجة نارية",
+                    plaque_immatriculation: "NK-123-AA"
+                },
+                saveToken: true,
+                tokenVar: 'driverToken'
             },
             {
                 method: 'POST',
@@ -442,19 +495,20 @@
                 description: 'إنشاء حساب جديد كجزار',
                 arabic: 'يستخدم هذا ال endpoint لتسجيل مستخدم جديد بدور "جزار". يجب إدخال البيانات الشخصية بالإضافة إلى الاسم التجاري، الموقع، نوع الخدمة، ورقم الهاتف المهني.',
                 auth: false,
-                role: 'boucher',
                 body: {
-                    nom: "الشيخ ولد أحمد",
-                    telephone: "+22299887766",
-                    email: "cheikh@boucher.com",
+                    nom: "حسن الجزار",
+                    telephone: "+22212345004",
+                    email: "butcher1@test.com",
                     mot_de_passe: "password123",
                     confirm_mot_de_passe: "password123",
                     role: "boucher",
-                    nom_commercial: "مسلخة الحليمة",
-                    localisation: "نواكشوط، لكصر",
+                    nom_commercial: "مسلخة الجزار",
+                    localisation: "نواكشوط، عرفات",
                     type_service: "DECOUPE",
-                    telephone_pro: "+22245678901"
-                }
+                    telephone_pro: "+22212345004"
+                },
+                saveToken: true,
+                tokenVar: 'butcherToken'
             },
             {
                 method: 'POST',
@@ -464,9 +518,11 @@
                 arabic: 'يستخدم هذا ال endpoint لتسجيل الدخول إلى النظام. يمكن استخدام البريد الإلكتروني أو رقم الهاتف كمُعرّف. عند النجاح، يتم إرجاع رمز JWT الذي يجب استخدامه للطلبات المحمية.',
                 auth: false,
                 body: {
-                    identifier: "ahmed@test.com",
+                    identifier: "buyer1@test.com",
                     mot_de_passe: "password123"
-                }
+                },
+                saveToken: true,
+                tokenVar: 'currentToken'
             },
             {
                 method: 'GET',
@@ -475,7 +531,8 @@
                 description: 'الحصول على بيانات الملف الشخصي للمستخدم الحالي',
                 arabic: 'يستخدم هذا ال endpoint لجلب جميع بيانات المستخدم المسجل دخولاً حالياً. يتطلب هذا ال endpoint توثيق JWT في الـ Header.',
                 auth: true,
-                body: null
+                body: null,
+                saveToken: false
             },
             {
                 method: 'PATCH',
@@ -485,9 +542,10 @@
                 arabic: 'يستخدم هذا ال endpoint لتحديث بيانات المستخدم مثل الاسم، عنوان التسليم، أو أي بيانات خاصة بالدور. يتطلب توثيق JWT.',
                 auth: true,
                 body: {
-                    nom: "أحمد ولد محمد - معدل",
+                    nom: "محمد المشتري - معدل",
                     adresse_livraison_par_defaut: "نواكشوط، عرفات، شارع 42"
-                }
+                },
+                saveToken: false
             },
             {
                 method: 'POST',
@@ -500,7 +558,8 @@
                     old_password: "password123",
                     new_password: "newPassword456",
                     confirm_new_password: "newPassword456"
-                }
+                },
+                saveToken: false
             },
             {
                 method: 'POST',
@@ -509,7 +568,9 @@
                 description: 'الحصول على رمز JWT جديد',
                 arabic: 'يستخدم هذا ال endpoint لتحديث رمز JWT قبل انتهاء صلاحيته. يتطلب الرمز الحالي ويعيد رمزاً جديداً صالحاً.',
                 auth: true,
-                body: null
+                body: null,
+                saveToken: true,
+                tokenVar: 'currentToken'
             },
             {
                 method: 'POST',
@@ -518,7 +579,158 @@
                 description: 'تسجيل الخروج من النظام',
                 arabic: 'يستخدم هذا ال endpoint لتسجيل الخروج. يقوم العميل بحذف الرمز محلياً. يتطلب توثيق JWT.',
                 auth: true,
-                body: null
+                body: null,
+                saveToken: false
+            }
+        ];
+
+        // Notification Endpoints
+        const notifEndpoints = [
+            {
+                method: 'GET',
+                url: '/api/v1/notifications/',
+                name: 'جميع الإشعارات',
+                description: 'الحصول على جميع إشعارات المستخدم الحالي مع إمكانية التصفية',
+                arabic: 'يستخدم هذا ال endpoint لجلب جميع إشعارات المستخدم المسجل دخولاً. يمكن تصفية النتائج باستخدام معاملات مثل unread_only=true أو type=ORDER_STATUS.',
+                auth: true,
+                body: null,
+                requiredRole: 'any'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/notifications/?unread_only=true&limit=10',
+                name: 'إشعارات غير مقروءة',
+                description: 'الحصول على الإشعارات غير المقروءة فقط',
+                arabic: 'يستخدم هذا ال endpoint لجلب الإشعارات التي لم يقرأها المستخدم بعد. مفيد لعرض عداد الإشعارات الجديدة.',
+                auth: true,
+                body: null,
+                requiredRole: 'any'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/notifications/?type=PAYMENT_CONFIRMED',
+                name: 'تصفية حسب النوع',
+                description: 'تصفية الإشعارات حسب النوع',
+                arabic: 'يستخدم هذا ال endpoint لتصفية الإشعارات حسب نوعها مثل: ORDER_STATUS, PAYMENT_CONFIRMED, DELIVERY_UPDATE, PREPARATION_READY, PROMOTION.',
+                auth: true,
+                body: null,
+                requiredRole: 'any'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/notifications/buyer/',
+                name: 'إشعارات المشتري',
+                description: 'إشعارات خاصة بالمشتري مع تنظيم حسب التاريخ',
+                arabic: 'هذا ال endpoint خاص بالمشتري فقط. يعيد الإشعارات منظمة حسب الفئات: اليوم، أمس، الأقدم. ويعيد أيضاً عدد الإشعارات غير المقروءة.',
+                auth: true,
+                body: null,
+                requiredRole: 'acheteur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/notifications/seller/',
+                name: 'إشعارات البائع',
+                description: 'إشعارات خاصة بالبائع - طلبات جديدة ومدفوعات',
+                arabic: 'هذا ال endpoint خاص بالبائع فقط. يعيد إشعارات متعلقة بطلبات الشراء الجديدة، المدفوعات المؤكدة، وإدارة المنتجات.',
+                auth: true,
+                body: null,
+                requiredRole: 'vendeur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/notifications/driver/',
+                name: 'إشعارات السائق',
+                description: 'إشعارات خاصة بالسائق - مهام التوصيل',
+                arabic: 'هذا ال endpoint خاص بالسائق فقط. يعيد إشعارات متعلقة بمهام التوصيل الجديدة، المهام النشطة، والمهام المكتملة. كما يعيد رصيد المحفظة.',
+                auth: true,
+                body: null,
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/notifications/butcher/',
+                name: 'إشعارات الجزار',
+                description: 'إشعارات خاصة بالجزار - طلبات التجهيز',
+                arabic: 'هذا ال endpoint خاص بالجزار فقط. يعيد إشعارات متعلقة بطلبات التجهيز الجديدة، المهام قيد التنفيذ، وطلبات التجهيز المكتملة.',
+                auth: true,
+                body: null,
+                requiredRole: 'boucher'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/notifications/mark-all-read/',
+                name: 'تعيين الكل كمقروء',
+                description: 'تعيين جميع الإشعارات كمقروءة',
+                arabic: 'يستخدم هذا ال endpoint لتعيين جميع إشعارات المستخدم كـ "مقروءة" دفعة واحدة. يعيد عدد الإشعارات التي تم تحديثها.',
+                auth: true,
+                body: null,
+                requiredRole: 'any'
+            }
+        ];
+
+        // Driver Mission Endpoints (NEW)
+        const driverEndpoints = [
+            {
+                method: 'POST',
+                url: '/api/v1/driver/toggle-availability/',
+                name: 'تغيير حالة التوفر',
+                description: 'تفعيل أو إلغاء توفر السائق لاستلام المهام',
+                arabic: 'يستخدم هذا ال endpoint لتغيير حالة توفر السائق. عندما يكون السائق متاحاً (est_disponible=true)، يمكن للنظام تعيين مهام توصيل جديدة له. إذا كان غير متاح، لن يتم تعيين أي مهام له.',
+                auth: true,
+                body: {
+                    est_disponible: true
+                },
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/driver/missions/?status=active',
+                name: 'المهام النشطة',
+                description: 'الحصول على جميع مهام التوصيل النشطة للسائق',
+                arabic: 'هذا ال endpoint يعيد جميع مهام التوصيل النشطة (غير المكتملة) المسندة للسائق الحالي. يشمل ذلك المهام التي تم قبولها وهي قيد التنفيذ.',
+                auth: true,
+                body: null,
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/driver/missions/?status=completed',
+                name: 'المهام المكتملة',
+                description: 'الحصول على جميع مهام التوصيل المكتملة للسائق',
+                arabic: 'هذا ال endpoint يعيد جميع مهام التوصيل التي أكملها السائق بنجاح. يشمل ذلك تاريخ التسليم ووقت الانتهاء.',
+                auth: true,
+                body: null,
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/driver/missions/{mission_id}/',
+                name: 'تفاصيل المهمة',
+                description: 'الحصول على تفاصيل كاملة لمهمة توصيل محددة',
+                arabic: 'هذا ال endpoint يعيد جميع تفاصيل مهمة التوصيل المحددة. يشمل معلومات البائع، المشتري، الحيوان، الموقع، والإحداثيات. استخدم معرف المهمة (mission_id) من قائمة المهام.',
+                auth: true,
+                body: null,
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/driver/missions/{mission_id}/accept/',
+                name: 'قبول المهمة',
+                description: 'قبول مهمة توصيل مقترحة',
+                arabic: 'يستخدم هذا ال endpoint لقبول مهمة توصيل مقترحة. بعد القبول، يتم تعيين المهمة رسمياً للسائق ويتغير حالتها إلى ASSIGNED. لا يمكن قبول مهمة تم تعيينها لسائق آخر.',
+                auth: true,
+                body: {},
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/driver/missions/{mission_id}/reject/',
+                name: 'رفض المهمة',
+                description: 'رفض مهمة توصيل مقترحة',
+                arabic: 'يستخدم هذا ال endpoint لرفض مهمة توصيل مقترحة. بعد الرفض، يبحث النظام عن سائق آخر متاح لتعيين المهمة له. يوصى باستخدام هذا فقط إذا كان السائق غير قادر على تنفيذ المهمة.',
+                auth: true,
+                body: {},
+                requiredRole: 'livreur'
             }
         ];
 
@@ -540,14 +752,50 @@
             }
         }
 
-        async function testEndpoint(endpoint) {
-            const url = `http://localhost:9001${endpoint.url}`;
+        function getTokenForRole(role) {
+            if (role === 'acheteur') return buyerToken;
+            if (role === 'vendeur') return sellerToken;
+            if (role === 'livreur') return driverToken;
+            if (role === 'boucher') return butcherToken;
+            return currentToken;
+        }
+
+        async function testEndpoint(endpoint, isNotification = false, isDriver = false) {
+            // Handle dynamic URL with {mission_id}
+            let urlPath = endpoint.url;
+            if (urlPath.includes('{mission_id}')) {
+                const missionId = prompt('📦 أدخل معرف المهمة (mission_id):\nمثال: 550e8400-e29b-41d4-a716-446655440000');
+                if (!missionId) {
+                    alert('⚠️ يجب إدخال معرف المهمة لاختبار هذا ال endpoint');
+                    return;
+                }
+                urlPath = urlPath.replace('{mission_id}', missionId);
+            }
+            
+            const url = `http://localhost:9001${urlPath}`;
             const headers = {
                 'Content-Type': 'application/json'
             };
             
-            if (endpoint.auth && currentToken) {
-                headers['Authorization'] = `Bearer ${currentToken}`;
+            let tokenToUse = currentToken;
+            if (isDriver && endpoint.requiredRole === 'livreur') {
+                tokenToUse = driverToken;
+                if (!tokenToUse) {
+                    alert('⚠️ يرجى تسجيل الدخول كـ سائق أولاً (استخدم endpoint تسجيل سائق جديد ثم سجل الدخول)');
+                    return;
+                }
+            }
+            
+            if (isNotification && endpoint.requiredRole && endpoint.requiredRole !== 'any') {
+                tokenToUse = getTokenForRole(endpoint.requiredRole);
+                if (!tokenToUse) {
+                    alert(`⚠️ يرجى تسجيل الدخول كـ ${endpoint.requiredRole === 'acheteur' ? 'مشتري' : endpoint.requiredRole === 'vendeur' ? 'بائع' : endpoint.requiredRole === 'livreur' ? 'سائق' : 'جزار'} أولاً`);
+                    return;
+                }
+            }
+            
+            if ((endpoint.auth || isDriver || isNotification) && tokenToUse) {
+                headers['Authorization'] = `Bearer ${tokenToUse}`;
             }
             
             const options = {
@@ -559,9 +807,12 @@
                 options.body = JSON.stringify(endpoint.body);
             }
             
-            const responseArea = document.getElementById(`response-${endpoint.url.replace(/\//g, '-')}`);
-            responseArea.classList.add('show');
-            responseArea.innerHTML = '<div style="color: #f59e0b;">⏳ جاري الإرسال...</div>';
+            const responseId = `response-${(isDriver ? 'driver-' : isNotification ? 'notif-' : 'auth-') + endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '')}`;
+            const responseArea = document.getElementById(responseId);
+            if (responseArea) {
+                responseArea.classList.add('show');
+                responseArea.innerHTML = '<div style="color: #f59e0b;">⏳ جاري الإرسال...</div>';
+            }
             
             try {
                 const startTime = Date.now();
@@ -569,52 +820,52 @@
                 const endTime = Date.now();
                 const data = await response.json();
                 
-                // If login successful, save token
-                if (endpoint.url === '/api/v1/auth/login/' && response.ok && data.token) {
-                    currentToken = data.token;
-                    document.getElementById('tokenDisplay').style.display = 'flex';
-                    document.getElementById('currentToken').innerText = currentToken;
+                if (responseArea) {
+                    responseArea.innerHTML = `
+                        <div style="color: #10b981;">✅ الحالة: ${response.status} ${response.statusText}</div>
+                        <div style="color: #667eea;">⏱️ وقت الاستجابة: ${endTime - startTime}ms</div>
+                        <div style="margin-top: 10px; color: #fff;">📦 البيانات:</div>
+                        <pre style="margin-top: 5px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
+                    `;
                 }
-                
-                // If register successful, save token
-                if (endpoint.url === '/api/v1/auth/register/' && response.ok && data.token) {
-                    currentToken = data.token;
-                    document.getElementById('tokenDisplay').style.display = 'flex';
-                    document.getElementById('currentToken').innerText = currentToken;
-                }
-                
-                responseArea.innerHTML = `
-                    <div style="color: #10b981;">✅ الحالة: ${response.status} ${response.statusText}</div>
-                    <div style="color: #667eea;">⏱️ وقت الاستجابة: ${endTime - startTime}ms</div>
-                    <div style="margin-top: 10px; color: #fff;">📦 البيانات:</div>
-                    <pre style="margin-top: 5px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
-                `;
             } catch (error) {
-                responseArea.innerHTML = `
-                    <div style="color: #ef4444;">❌ خطأ: ${error.message}</div>
-                    <div style="margin-top: 10px;">تأكد من أن الخادم يعمل على http://localhost:9001</div>
-                `;
+                if (responseArea) {
+                    responseArea.innerHTML = `
+                        <div style="color: #ef4444;">❌ خطأ: ${error.message}</div>
+                        <div style="margin-top: 10px;">تأكد من أن الخادم يعمل على http://localhost:9001</div>
+                    `;
+                }
             }
         }
 
-        function copyToken() {
-            navigator.clipboard.writeText(currentToken);
-            alert('✅ تم نسخ Token إلى الحافظة');
-        }
-
-        function clearToken() {
-            currentToken = '';
-            document.getElementById('tokenDisplay').style.display = 'none';
-            document.getElementById('currentToken').innerText = '';
-            alert('🗑️ تم مسح Token');
-        }
-
-        function renderEndpoints() {
-            const grid = document.getElementById('endpointsGrid');
+        function renderEndpoints(endpoints, containerId, isNotification = false, isDriver = false) {
+            const grid = document.getElementById(containerId);
+            if (!grid) return;
+            grid.innerHTML = '';
             
-            endpoints.forEach(endpoint => {
+            endpoints.forEach((endpoint, index) => {
                 const card = document.createElement('div');
                 card.className = 'endpoint-card';
+                const cleanUrl = endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '');
+                const responseId = `response-${(isDriver ? 'driver-' : isNotification ? 'notif-' : 'auth-') + cleanUrl}`;
+                
+                let roleNote = '';
+                if ((isNotification || isDriver) && endpoint.requiredRole && endpoint.requiredRole !== 'any') {
+                    const roleName = endpoint.requiredRole === 'acheteur' ? 'المشتري' : 
+                                   endpoint.requiredRole === 'vendeur' ? 'البائع' :
+                                   endpoint.requiredRole === 'livreur' ? 'السائق' : 'الجزار';
+                    roleNote = `<div style="background: rgba(239,68,68,0.2); padding: 8px; border-radius: 8px; margin-bottom: 10px; font-size: 12px;">
+                        ⚠️ هذا ال endpoint خاص بـ <strong>${roleName}</strong> فقط
+                    </div>`;
+                }
+                
+                // Add note for mission_id placeholder
+                let placeholderNote = '';
+                if (endpoint.url.includes('{mission_id}')) {
+                    placeholderNote = `<div style="background: rgba(102,126,234,0.2); padding: 8px; border-radius: 8px; margin-bottom: 10px; font-size: 12px;">
+                        📌 <strong>ملاحظة:</strong> استبدل {mission_id} بمعرف المهمة الفعلي (مثال: 550e8400-e29b-41d4-a716-446655440000)
+                    </div>`;
+                }
                 
                 card.innerHTML = `
                     <div class="card-header">
@@ -625,10 +876,12 @@
                     <div class="card-body">
                         <h3 style="margin-bottom: 10px;">${endpoint.name}</h3>
                         <div class="description">${endpoint.description}</div>
+                        ${roleNote}
+                        ${placeholderNote}
                         <div class="arabic-desc">
                             📖 <strong>شرح بالعربية:</strong><br>
                             ${endpoint.arabic}
-                            ${endpoint.auth ? '<br><br>🔐 <strong>هذا ال endpoint يتطلب توثيق (JWT Token)</strong>' : '<br><br>🌐 <strong>هذا ال endpoint مفتوح ولا يتطلب توثيق</strong>'}
+                            ${(endpoint.auth || isDriver || isNotification) ? '<br><br>🔐 <strong>هذا ال endpoint يتطلب توثيق (JWT Token)</strong>' : '<br><br>🌐 <strong>هذا ال endpoint مفتوح ولا يتطلب توثيق</strong>'}
                         </div>
                         
                         ${endpoint.body ? `
@@ -638,11 +891,11 @@
                             </div>
                         ` : ''}
                         
-                        <button class="test-btn" onclick="testEndpoint(${JSON.stringify(endpoint).replace(/"/g, '&quot;')})">
+                        <button class="test-btn" onclick="testEndpoint(${JSON.stringify(endpoint).replace(/"/g, '&quot;')}, ${isNotification}, ${isDriver})">
                             🧪 اختبار الـ Endpoint
                         </button>
                         
-                        <div id="response-${endpoint.url.replace(/\//g, '-')}" class="response-area"></div>
+                        <div id="${responseId}" class="response-area"></div>
                     </div>
                 `;
                 
@@ -650,19 +903,56 @@
             });
         }
 
+        function switchTab(tab) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update content
+            document.getElementById('auth-tab').classList.remove('active');
+            document.getElementById('notifications-tab').classList.remove('active');
+            document.getElementById('driver-tab').classList.remove('active');
+            
+            if (tab === 'auth') {
+                document.getElementById('auth-tab').classList.add('active');
+            } else if (tab === 'notifications') {
+                document.getElementById('notifications-tab').classList.add('active');
+            } else {
+                document.getElementById('driver-tab').classList.add('active');
+            }
+        }
+
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
             alert('✅ تم نسخ الرابط: ' + text);
         }
 
+        function copyToken() {
+            navigator.clipboard.writeText(currentToken);
+            alert('✅ تم نسخ Token إلى الحافظة');
+        }
+
+        function clearToken() {
+            currentToken = '';
+            buyerToken = '';
+            sellerToken = '';
+            driverToken = '';
+            butcherToken = '';
+            document.getElementById('tokenDisplay').style.display = 'none';
+            document.getElementById('currentToken').innerText = '';
+            alert('🗑️ تم مسح جميع الرموز');
+        }
+
+        // Initialize
+        renderEndpoints(authEndpoints, 'authEndpointsGrid', false, false);
+        renderEndpoints(notifEndpoints, 'notifEndpointsGrid', true, false);
+        renderEndpoints(driverEndpoints, 'driverEndpointsGrid', false, true);
+        checkServer();
+        
         // Auto-check server every 10 seconds
         setInterval(checkServer, 10000);
         
-        // Initialize
-        renderEndpoints();
-        checkServer();
-        
-        // Check if token exists in localStorage
+        // Load saved token from localStorage
         const savedToken = localStorage.getItem('almarbat_token');
         if (savedToken) {
             currentToken = savedToken;
@@ -670,7 +960,7 @@
             document.getElementById('currentToken').innerText = currentToken;
         }
         
-        // Save token to localStorage when changed
+        // Save token to localStorage
         setInterval(() => {
             if (currentToken) {
                 localStorage.setItem('almarbat_token', currentToken);
