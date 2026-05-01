@@ -378,6 +378,7 @@
             <button class="tab-btn active" onclick="switchTab('auth')">🔐 المصادقة والتسجيل</button>
             <button class="tab-btn" onclick="switchTab('notifications')">🔔 نظام الإشعارات</button>
             <button class="tab-btn" onclick="switchTab('driver')">🚚 مهام السائق</button>
+            <button class="tab-btn" onclick="switchTab('tracking')">🗺️ التتبع الحي وQR</button>
         </div>
 
         <!-- Auth Tab Content -->
@@ -393,6 +394,11 @@
         <!-- Driver Tab Content -->
         <div id="driver-tab" class="tab-content">
             <div class="endpoint-grid" id="driverEndpointsGrid"></div>
+        </div>
+
+        <!-- Tracking & QR Tab Content (NEW) -->
+        <div id="tracking-tab" class="tab-content">
+            <div class="endpoint-grid" id="trackingEndpointsGrid"></div>
         </div>
 
         <div class="token-display" id="tokenDisplay" style="display: none;">
@@ -416,7 +422,7 @@
         let driverToken = '';
         let butcherToken = '';
 
-        // Authentication Endpoints
+        // Authentication Endpoints (unchanged)
         const authEndpoints = [
             {
                 method: 'GET',
@@ -445,8 +451,8 @@
                     role: "acheteur",
                     adresse_livraison_par_defaut: "نواكشوط، تفرغ زينة"
                 },
-                saveToken: true,
-                tokenVar: 'buyerToken'
+                saveToken: false,
+                tokenVar: null
             },
             {
                 method: 'POST',
@@ -465,8 +471,8 @@
                     nom_commercial: "مزرعة البائع",
                     localisation: "نواكشوط، دار النعيم"
                 },
-                saveToken: true,
-                tokenVar: 'sellerToken'
+                saveToken: false,
+                tokenVar: null
             },
             {
                 method: 'POST',
@@ -485,8 +491,8 @@
                     vehicule_type: "دراجة نارية",
                     plaque_immatriculation: "NK-123-AA"
                 },
-                saveToken: true,
-                tokenVar: 'driverToken'
+                saveToken: false,
+                tokenVar: null
             },
             {
                 method: 'POST',
@@ -507,8 +513,8 @@
                     type_service: "DECOUPE",
                     telephone_pro: "+22212345004"
                 },
-                saveToken: true,
-                tokenVar: 'butcherToken'
+                saveToken: false,
+                tokenVar: null
             },
             {
                 method: 'POST',
@@ -584,7 +590,7 @@
             }
         ];
 
-        // Notification Endpoints
+        // Notification Endpoints (unchanged)
         const notifEndpoints = [
             {
                 method: 'GET',
@@ -668,7 +674,7 @@
             }
         ];
 
-        // Driver Mission Endpoints (NEW)
+        // Driver Mission Endpoints (existing)
         const driverEndpoints = [
             {
                 method: 'POST',
@@ -734,6 +740,112 @@
             }
         ];
 
+        // NEW: Tracking & QR Code Endpoints
+        const trackingEndpoints = [
+            {
+                method: 'PUT',
+                url: '/api/v1/delivery/location/',
+                name: 'تحديث موقع السائق',
+                description: 'تحديث الموقع الحالي للسائق في الوقت الفعلي',
+                arabic: 'يستخدم هذا ال endpoint لتحديث موقع السائق الحالي (الإحداثيات) في الوقت الفعلي. هذا مهم لعرض حركة السائق على الخريطة في تطبيق العميل. يتم تحديث الموقع كل 5-10 ثواني أثناء التوصيل.',
+                auth: true,
+                body: {
+                    latitude: 18.0800,
+                    longitude: -15.9650
+                },
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/delivery/tracking/{mission_id}/',
+                name: 'بيانات التتبع الحي',
+                description: 'الحصول على جميع بيانات التتبع للمهمة (نقاط البائع، الجزار، المشتري)',
+                arabic: 'هذا ال endpoint مهم جداً لشاشة الخريطة. يعيد جميع نقاط التوصيل (البائع، الجزار، المشتري) مع إحداثياتها، موقع السائق الحالي، والمرحلة الحالية من التوصيل. يستخدم هذا لعرض المسار على الخريطة.',
+                auth: true,
+                body: null,
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/delivery/arrival/{mission_id}/seller/',
+                name: 'تأكيد الوصول إلى البائع',
+                description: 'تأكيد وصول السائق إلى موقع البائع',
+                arabic: 'يستخدم هذا ال endpoint عندما يصل السائق إلى موقع البائع. بعد التأكيد، يتم تحديث حالة التوصيل. هذا يحدث قبل مسح رمز QR الخاص بالبائع.',
+                auth: true,
+                body: {},
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/delivery/arrival/{mission_id}/butcher/',
+                name: 'تأكيد الوصول إلى الجزار',
+                description: 'تأكيد وصول السائق إلى موقع الجزار',
+                arabic: 'يستخدم هذا ال endpoint عندما يصل السائق إلى موقع الجزار (إذا كانت هناك عملية تجهيز). بعد التأكيد، يتم تحديث حالة التوصيل.',
+                auth: true,
+                body: {},
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/delivery/arrival/{mission_id}/buyer/',
+                name: 'تأكيد الوصول إلى المشتري',
+                description: 'تأكيد وصول السائق إلى موقع المشتري',
+                arabic: 'يستخدم هذا ال endpoint عندما يصل السائق إلى موقع المشتري. بعد التأكيد ومسح رمز QR، يتم إكمال عملية التوصيل.',
+                auth: true,
+                body: {},
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/delivery/scan/seller/',
+                name: 'مسح QR البائع',
+                description: 'مسح رمز QR الخاص بالبائع عند استلام الحيوان',
+                arabic: 'يستخدم هذا ال endpoint لمسح رمز QR الذي يعرضه البائع. هذا يؤكد استلام الحيوان من البائع. يتطلب endpoint معرف المهمة وقيمة رمز QR الذي تم مسحه.',
+                auth: true,
+                body: {
+                    mission_id: "550e8400-e29b-41d4-a716-446655440000",
+                    qr_code: "ALM-ABC12345-SEL-a1b2c3d4"
+                },
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/delivery/scan/butcher/',
+                name: 'مسح QR الجزار',
+                description: 'مسح رمز QR الخاص بالجزار بعد إتمام التجهيز',
+                arabic: 'يستخدم هذا ال endpoint لمسح رمز QR الذي يعرضه الجزار بعد إتمام عملية التجهيز. هذا يؤكد استلام اللحم المجهز من الجزار.',
+                auth: true,
+                body: {
+                    mission_id: "550e8400-e29b-41d4-a716-446655440000",
+                    qr_code: "ALM-ABC12345-BUT-b2c3d4e5"
+                },
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'POST',
+                url: '/api/v1/delivery/scan/buyer/',
+                name: 'مسح QR المشتري',
+                description: 'مسح رمز QR الخاص بالمشتري عند توصيل الطلب',
+                arabic: 'يستخدم هذا ال endpoint لمسح رمز QR الذي يعرضه المشتري عند استلام الطلب. هذا يؤكد إتمام عملية التوصيل بنجاح. بعد هذا المسح، يتم تحديث حالة الطلب إلى "مكتمل".',
+                auth: true,
+                body: {
+                    mission_id: "550e8400-e29b-41d4-a716-446655440000",
+                    qr_code: "ALM-ABC12345-BUY-c3d4e5f6"
+                },
+                requiredRole: 'livreur'
+            },
+            {
+                method: 'GET',
+                url: '/api/v1/delivery/scan/status/{mission_id}/',
+                name: 'حالة المسح الضوئي',
+                description: 'الحصول على حالة المسح للمهمة - أي الرموز تم مسحها',
+                arabic: 'يستخدم هذا ال endpoint لمعرفة أي من رموز QR الثلاثة (البائع، الجزار، المشتري) تم مسحها بالفعل. هذا مفيد لعرض التقدم في واجهة المستخدم ومعرفة الخطوة التالية.',
+                auth: true,
+                body: null,
+                requiredRole: 'livreur'
+            }
+        ];
+
         async function checkServer() {
             const statusLight = document.getElementById('statusLight');
             const statusText = document.getElementById('statusText');
@@ -760,7 +872,7 @@
             return currentToken;
         }
 
-        async function testEndpoint(endpoint, isNotification = false, isDriver = false) {
+        async function testEndpoint(endpoint, isNotification = false, isDriver = false, isTracking = false) {
             // Handle dynamic URL with {mission_id}
             let urlPath = endpoint.url;
             if (urlPath.includes('{mission_id}')) {
@@ -786,6 +898,14 @@
                 }
             }
             
+            if (isTracking && endpoint.requiredRole === 'livreur') {
+                tokenToUse = driverToken;
+                if (!tokenToUse) {
+                    alert('⚠️ يرجى تسجيل الدخول كـ سائق أولاً (استخدم endpoint تسجيل سائق جديد ثم سجل الدخول)');
+                    return;
+                }
+            }
+            
             if (isNotification && endpoint.requiredRole && endpoint.requiredRole !== 'any') {
                 tokenToUse = getTokenForRole(endpoint.requiredRole);
                 if (!tokenToUse) {
@@ -794,7 +914,7 @@
                 }
             }
             
-            if ((endpoint.auth || isDriver || isNotification) && tokenToUse) {
+            if ((endpoint.auth || isDriver || isNotification || isTracking) && tokenToUse) {
                 headers['Authorization'] = `Bearer ${tokenToUse}`;
             }
             
@@ -807,7 +927,17 @@
                 options.body = JSON.stringify(endpoint.body);
             }
             
-            const responseId = `response-${(isDriver ? 'driver-' : isNotification ? 'notif-' : 'auth-') + endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '')}`;
+            let responseId;
+            if (isTracking) {
+                responseId = `response-tracking-${endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '')}`;
+            } else if (isDriver) {
+                responseId = `response-driver-${endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '')}`;
+            } else if (isNotification) {
+                responseId = `response-notif-${endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '')}`;
+            } else {
+                responseId = `response-auth-${endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '')}`;
+            }
+            
             const responseArea = document.getElementById(responseId);
             if (responseArea) {
                 responseArea.classList.add('show');
@@ -838,7 +968,7 @@
             }
         }
 
-        function renderEndpoints(endpoints, containerId, isNotification = false, isDriver = false) {
+        function renderEndpoints(endpoints, containerId, isNotification = false, isDriver = false, isTracking = false) {
             const grid = document.getElementById(containerId);
             if (!grid) return;
             grid.innerHTML = '';
@@ -846,11 +976,20 @@
             endpoints.forEach((endpoint, index) => {
                 const card = document.createElement('div');
                 card.className = 'endpoint-card';
-                const cleanUrl = endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '');
-                const responseId = `response-${(isDriver ? 'driver-' : isNotification ? 'notif-' : 'auth-') + cleanUrl}`;
+                let cleanUrl = endpoint.url.replace(/\//g, '-').replace(/\{/g, '').replace(/\}/g, '');
+                let responseId;
+                if (isTracking) {
+                    responseId = `response-tracking-${cleanUrl}`;
+                } else if (isDriver) {
+                    responseId = `response-driver-${cleanUrl}`;
+                } else if (isNotification) {
+                    responseId = `response-notif-${cleanUrl}`;
+                } else {
+                    responseId = `response-auth-${cleanUrl}`;
+                }
                 
                 let roleNote = '';
-                if ((isNotification || isDriver) && endpoint.requiredRole && endpoint.requiredRole !== 'any') {
+                if ((isNotification || isDriver || isTracking) && endpoint.requiredRole && endpoint.requiredRole !== 'any') {
                     const roleName = endpoint.requiredRole === 'acheteur' ? 'المشتري' : 
                                    endpoint.requiredRole === 'vendeur' ? 'البائع' :
                                    endpoint.requiredRole === 'livreur' ? 'السائق' : 'الجزار';
@@ -859,7 +998,6 @@
                     </div>`;
                 }
                 
-                // Add note for mission_id placeholder
                 let placeholderNote = '';
                 if (endpoint.url.includes('{mission_id}')) {
                     placeholderNote = `<div style="background: rgba(102,126,234,0.2); padding: 8px; border-radius: 8px; margin-bottom: 10px; font-size: 12px;">
@@ -881,7 +1019,7 @@
                         <div class="arabic-desc">
                             📖 <strong>شرح بالعربية:</strong><br>
                             ${endpoint.arabic}
-                            ${(endpoint.auth || isDriver || isNotification) ? '<br><br>🔐 <strong>هذا ال endpoint يتطلب توثيق (JWT Token)</strong>' : '<br><br>🌐 <strong>هذا ال endpoint مفتوح ولا يتطلب توثيق</strong>'}
+                            ${(endpoint.auth || isDriver || isNotification || isTracking) ? '<br><br>🔐 <strong>هذا ال endpoint يتطلب توثيق (JWT Token)</strong>' : '<br><br>🌐 <strong>هذا ال endpoint مفتوح ولا يتطلب توثيق</strong>'}
                         </div>
                         
                         ${endpoint.body ? `
@@ -891,7 +1029,7 @@
                             </div>
                         ` : ''}
                         
-                        <button class="test-btn" onclick="testEndpoint(${JSON.stringify(endpoint).replace(/"/g, '&quot;')}, ${isNotification}, ${isDriver})">
+                        <button class="test-btn" onclick="testEndpoint(${JSON.stringify(endpoint).replace(/"/g, '&quot;')}, ${isNotification}, ${isDriver}, ${isTracking})">
                             🧪 اختبار الـ Endpoint
                         </button>
                         
@@ -912,13 +1050,16 @@
             document.getElementById('auth-tab').classList.remove('active');
             document.getElementById('notifications-tab').classList.remove('active');
             document.getElementById('driver-tab').classList.remove('active');
+            document.getElementById('tracking-tab').classList.remove('active');
             
             if (tab === 'auth') {
                 document.getElementById('auth-tab').classList.add('active');
             } else if (tab === 'notifications') {
                 document.getElementById('notifications-tab').classList.add('active');
-            } else {
+            } else if (tab === 'driver') {
                 document.getElementById('driver-tab').classList.add('active');
+            } else if (tab === 'tracking') {
+                document.getElementById('tracking-tab').classList.add('active');
             }
         }
 
@@ -943,10 +1084,12 @@
             alert('🗑️ تم مسح جميع الرموز');
         }
 
-        // Initialize
-        renderEndpoints(authEndpoints, 'authEndpointsGrid', false, false);
-        renderEndpoints(notifEndpoints, 'notifEndpointsGrid', true, false);
-        renderEndpoints(driverEndpoints, 'driverEndpointsGrid', false, true);
+        // Initialize all tabs
+        renderEndpoints(authEndpoints, 'authEndpointsGrid', false, false, false);
+        renderEndpoints(notifEndpoints, 'notifEndpointsGrid', true, false, false);
+        renderEndpoints(driverEndpoints, 'driverEndpointsGrid', false, true, false);
+        renderEndpoints(trackingEndpoints, 'trackingEndpointsGrid', false, false, true);
+        
         checkServer();
         
         // Auto-check server every 10 seconds
